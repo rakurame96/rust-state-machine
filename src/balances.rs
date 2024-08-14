@@ -1,9 +1,20 @@
 use std::collections::BTreeMap;
 
+/*
+	TODO: Define the common types used in this pallet:
+		- `AccountID`
+		- `Balance`
+
+	Then update this pallet to use these common types.
+*/
+
+type AccountID = String;
+type Balance = u128;
+
 #[derive(Debug)]
 pub struct Pallet {
     // A simple storage mapping from accounts (`String`) to their balances (`u128`).
-    balances: BTreeMap<String, u128>,
+    balances: BTreeMap<AccountID, Balance>,
 }
 
 impl Pallet {
@@ -15,7 +26,7 @@ impl Pallet {
     }
 
     /// Set the balance of an account `who` to some `amount`.
-    pub fn set_balance (&mut self, who: &String, amount: u128) {
+    pub fn set_balance (&mut self, who: &AccountID, amount: Balance) {
         self.balances.insert(who.clone(), amount);
     }
 
@@ -30,9 +41,9 @@ impl Pallet {
 	/// and that no mathematical overflows occur.
     pub fn transfer(
         &mut self, 
-        caller: String,
-        to: String,
-        amount: u128,
+        caller: AccountID,
+        to: AccountID,
+        amount: Balance,
     ) -> Result<(), &'static str> {
         /* TODO:
 			- Get the balance of account `caller`.
