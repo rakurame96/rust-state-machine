@@ -1,23 +1,17 @@
 use std::collections::BTreeMap;
-
-/*
-	TODO: Define the common types used in this pallet:
-		- `AccountID`
-		- `Balance`
-
-	Then update this pallet to use these common types.
-*/
-
-type AccountID = String;
-type Balance = u128;
+use num::{traits::CheckedAdd, CheckedSub, Zero};
 
 #[derive(Debug)]
-pub struct Pallet {
+pub struct Pallet<AccountID, Balance> {
     // A simple storage mapping from accounts (`String`) to their balances (`u128`).
     balances: BTreeMap<AccountID, Balance>,
 }
 
-impl Pallet {
+impl<AccountID, Balance> Pallet<AccountID, Balance> 
+where 
+    AccountID: Ord + Clone,
+    Balance: Zero + CheckedAdd + CheckedSub + Copy,
+{
     /// Create a new instance of the balances module.
     pub fn new () -> Self {
         Self {
@@ -32,8 +26,8 @@ impl Pallet {
 
     /// Get the balance of an account `who`.
 	/// If the account has no stored balance, we return zero.    
-    pub fn balance (&mut self, who: &String) -> u128 {
-        *self.balances.get(who).unwrap_or(&0)
+    pub fn balance (&mut self, who: &AccountID) -> Balance {
+        *self.balances.get(who).unwrap_or(&Balance::zero())
     }
 
     /// Transfer `amount` from one account to another.
@@ -59,11 +53,11 @@ impl Pallet {
         let to_balance = self.balance(&to);
 
         let new_caller_balance = caller_balance
-            .checked_sub(amount)
+            .checked_sub(&amount)
             .ok_or("insufficient balance")?;
 
         let new_to_balance = to_balance
-            .checked_add(amount)
+            .checked_add(&amount)
             .ok_or("overflow when adding to balance")?;
 
         self.set_balance(&caller, new_caller_balance);
