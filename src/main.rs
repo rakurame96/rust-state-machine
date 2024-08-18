@@ -3,6 +3,7 @@ use support::Dispatch;
 mod balances;
 mod system;
 mod support;
+mod proof_of_existence;
 
 mod types {
     use crate::support;
@@ -11,16 +12,15 @@ mod types {
     pub type Balance = u128;
     pub type BlockNumber = u32;
     pub type Nonce = u32;
-    /* TODO: Define a concrete `Extrinsic` type using `AccountId` and `RuntimeCall`. */
-	/* TODO: Define a concrete `Header` type using `BlockNumber`. */
-	/* TODO: Define a concrete `Block` type using `Header` and `Extrinsic`. */
     pub type Extrinsic = support::Extrinsic<AccountId, crate::RuntimeCall>;
     pub type Header = support::Header<BlockNumber>;
     pub type Block = support::Block<Header, Extrinsic>;
+    pub type Content = &'static str;
 }
 
 pub enum RuntimeCall {
     Balances(balances::Call<Runtime>),
+    ProofOfExistence(proof_of_existence::Call<Runtime>)
 }
 
 impl system::Config for Runtime {
@@ -32,12 +32,18 @@ impl system::Config for Runtime {
 impl balances::Config for Runtime {
     type Balance = types::Balance;
 }
+
+impl proof_of_existence::Config for Runtime {
+    type Content = types::Content;
+}
+
 // This is our main Runtime.
 // It accumulates all of the different pallets we want to use.
 #[derive(Debug)]
 pub struct Runtime {
     system: system::Pallet<Runtime>,
     balances: balances::Pallet<Runtime>,
+    proof_of_existence: proof_of_existence::Pallet<Runtime>,
 }
 
 impl Runtime {
@@ -46,6 +52,7 @@ impl Runtime {
 		Self {
             system: system::Pallet::new(),
             balances: balances::Pallet::new(),
+            proof_of_existence: proof_of_existence::Pallet::new(),
         }
 	}
 
@@ -64,18 +71,6 @@ impl Runtime {
                 block.header.block_number, i, e
             ));
         }
-		/* TODO:
-			- Increment the system's block number.
-			- Check that the block number of the incoming block matches the current block number,
-			  or return an error.
-			- Iterate over the extrinsics in the block...
-				- Increment the nonce of the caller.
-				- Dispatch the extrinsic using the `caller` and the `call` contained in the extrinsic.
-				- Handle errors from `dispatch` same as we did for individual calls: printing any
-				  error and capturing the result.
-				- You can extend the error message to include information like the block number and
-				  extrinsic number.
-		*/
 		Ok(())
 	}
 }
@@ -97,6 +92,9 @@ impl crate::support::Dispatch for Runtime {
 		match runtime_call {
             RuntimeCall::Balances(call) => {
                 self.balances.dispatch(caller, call)?;
+            },
+            RuntimeCall::ProofOfExistence(call) => {
+                self.proof_of_existence.dispatch(caller, call)?;
             },
         }
         Ok(())
@@ -128,6 +126,29 @@ fn main() {
     };
 
     runtime.execute_block(block_1).expect("wrong block execution");
+
+    /*
+		TODO:
+		Create new block(s) which execute extrinsics for the new `ProofOfExistence` pallet.
+			- Make sure to set the block number correctly.
+			- Feel free to allow some extrinsics to fail, and see the errors appear.
+	*/
+    let block_2 = types::Block {
+        header: support::Header { block_number: 2 },
+        extrinsics: vec![
+            support::Extrinsic {
+                caller: alice.clone(),
+                call: RuntimeCall::ProofOfExistence(proof_of_existence::Call::CreateClaim { claim: "my_document" })
+            },
+            support::Extrinsic {
+                caller: bob.clone(),
+                call: RuntimeCall::ProofOfExistence(proof_of_existence::Call::CreateClaim { claim: "bob's document" }),
+            },
+        ],
+    };
+
+    runtime.execute_block(block_2).expect("wrong block execution");
+    
 
     println!("Runtime: {:#?}", runtime);
 }
