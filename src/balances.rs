@@ -11,31 +11,33 @@ pub struct Pallet<T: Config> {
     balances: BTreeMap<T::AccountId, T::Balance>,
 }
 
-// A public enum which describes the calls we want to expose to the dispatcher.
-// We should expect that the caller of each call will be provided by the dispatcher,
-// and not included as a parameter of the call.
-pub enum Call<T: Config> {
-    Transfer { to: T::AccountId, amount: T::Balance },
-}
+#[macros::call]
+impl<T: Config> Pallet<T> {
+    /// Transfer `amount` from one account to another.
+	/// This function verifies that `from` has at least `amount` balance to transfer,
+	/// and that no mathematical overflows occur.
+    pub fn transfer(
+        &mut self, 
+        caller: T::AccountId,
+        to: T::AccountId,
+        amount: T::Balance,
+    ) -> crate::support::DispatchResult {
+        let caller_balance = self.balance(&caller);
+        let to_balance = self.balance(&to);
 
-/// Implementation of the dispatch logic, mapping from `BalancesCall` to the appropriate underlying
-/// function we want to execute.
-impl<T: Config> crate::support::Dispatch for Pallet<T> {
-	type Caller = T::AccountId;
-	type Call = Call<T>;
+        let new_caller_balance = caller_balance
+            .checked_sub(&amount)
+            .ok_or("insufficient balance")?;
 
-	fn dispatch(
-		&mut self,
-		caller: Self::Caller,
-		call: Self::Call,
-	) -> crate::support::DispatchResult {
-        match call {
-            Call::Transfer { to, amount } => {
-                self.transfer(caller, to, amount)?;
-            }
-        }
+        let new_to_balance = to_balance
+            .checked_add(&amount)
+            .ok_or("overflow when adding to balance")?;
+
+        self.set_balance(&caller, new_caller_balance);
+        self.set_balance(&to, new_to_balance);
+
         Ok(())
-	}
+    }
 }
 
 impl<T: Config> Pallet<T> {
@@ -55,43 +57,7 @@ impl<T: Config> Pallet<T> {
 	/// If the account has no stored balance, we return zero.    
     pub fn balance (&mut self, who: &T::AccountId) -> T::Balance {
         *self.balances.get(who).unwrap_or(&T::Balance::zero())
-    }
-
-    /// Transfer `amount` from one account to another.
-	/// This function verifies that `from` has at least `amount` balance to transfer,
-	/// and that no mathematical overflows occur.
-    pub fn transfer(
-        &mut self, 
-        caller: T::AccountId,
-        to: T::AccountId,
-        amount: T::Balance,
-    ) -> crate::support::DispatchResult {
-        /* TODO:
-			- Get the balance of account `caller`.
-			- Get the balance of account `to`.
-
-			- Use safe math to calculate a `new_caller_balance`.
-			- Use safe math to calculate a `new_to_balance`.
-
-			- Insert the new balance of `caller`.
-			- Insert the new balance of `to`.
-		*/
-        let caller_balance = self.balance(&caller);
-        let to_balance = self.balance(&to);
-
-        let new_caller_balance = caller_balance
-            .checked_sub(&amount)
-            .ok_or("insufficient balance")?;
-
-        let new_to_balance = to_balance
-            .checked_add(&amount)
-            .ok_or("overflow when adding to balance")?;
-
-        self.set_balance(&caller, new_caller_balance);
-        self.set_balance(&to, new_to_balance);
-
-        Ok(())
-    }
+    }    
 }
 
 #[cfg(test)]
